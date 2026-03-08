@@ -75,7 +75,7 @@ export const HistoricalInspector = ({ data }: { data: HistoricalData }) => {
     // Build actual datasets for graphs
     const datasets = getDatasets(monthly.monthlyData, RELEVANT_COMPONENTS, false);
 
-    const averageSeriesName = "Average";
+    const averageSeriesName = "Average of all Component Uptimes";
     const monthlyAvg = averageMonthly(monthly.monthlyData, averageSeriesName);
     const datasetsAvg = getDatasets(monthlyAvg, [averageSeriesName], true);
 
@@ -89,10 +89,10 @@ export const HistoricalInspector = ({ data }: { data: HistoricalData }) => {
     <div className="responsiveGraphHack tabWrapper">
       <Tabs defaultActiveKey="average">
         <Tab eventKey="average" title="Average" className="responsiveGraphHack">
-          <HistoricalGraph title={["Overall Average Uptime by Month", "(Codespaces and Copilot excluded due to launch partway through dataset)"]} datasets={datasetsAvg} />
+          <HistoricalGraph title={["GitHub Average Uptime by Month", "(Codespaces and Copilot excluded due to launch partway through dataset)"]} datasets={datasetsAvg} />
         </Tab>
         <Tab eventKey="breakdown" title="Breakdown" className="responsiveGraphHack">
-          <HistoricalGraph title={["Average Uptime by Month", "(Codespaces and Copilot excluded due to launch partway through dataset)"]} datasets={datasets} legend />
+          <HistoricalGraph title={["GitHub Uptime by Month", "(Codespaces and Copilot excluded due to launch partway through dataset)"]} datasets={datasets} legend />
         </Tab>
       </Tabs>
     </div>
@@ -160,7 +160,7 @@ export const HistoricalGraph = ({ title, datasets, legend }: { title: string | s
                 ];
 
                 if (timeMinor > 0) {
-                  labels.push(`Minor Outages: ${timeMinor > 0 ? humanize(timeMinor) : "N/A"}`);
+                  labels.push(`Partial Outages: ${timeMinor > 0 ? humanize(timeMinor) : "N/A"}`);
                 }
 
                 if (timeMajor > 0) {
