@@ -123,6 +123,12 @@ export const HistoricalGraph = ({ title, datasets, legend }: { title: string | s
             text: title,
           },
           annotation: {
+            animations: { // Disable animations to fix layout issues
+              numbers: {
+                properties: [],
+                type: "number",
+              },
+            },
             annotations: {
               microslopLine: {
                 type: "line",
