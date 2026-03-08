@@ -82,14 +82,16 @@ export const HistoricalInspector = ({ data }: { data: HistoricalData }) => {
   }, [data]);
 
   return (
-    <Tabs defaultActiveKey="average">
-      <Tab eventKey="average" title="Average">
-        <HistoricalGraph title={["Overall Average Uptime by Month", "(Codespaces and Copilot excluded due to launch partway through dataset)"]} datasets={datasetsAvg} />
-      </Tab>
-      <Tab eventKey="breakdown" title="Breakdown">
-        <HistoricalGraph title={["Average Uptime by Month", "(Codespaces and Copilot excluded due to launch partway through dataset)"]} datasets={datasets} legend />
-      </Tab>
-    </Tabs>
+    <div className="responsiveGraphHack tabWrapper">
+      <Tabs defaultActiveKey="average">
+        <Tab eventKey="average" title="Average" className="responsiveGraphHack">
+          <HistoricalGraph title={["Overall Average Uptime by Month", "(Codespaces and Copilot excluded due to launch partway through dataset)"]} datasets={datasetsAvg} />
+        </Tab>
+        <Tab eventKey="breakdown" title="Breakdown" className="responsiveGraphHack">
+          <HistoricalGraph title={["Average Uptime by Month", "(Codespaces and Copilot excluded due to launch partway through dataset)"]} datasets={datasets} legend />
+        </Tab>
+      </Tabs>
+    </div>
   );
 }
 
@@ -98,66 +100,78 @@ export const HistoricalGraph = ({ title, datasets, legend }: { title: string | s
   const yPad = deltaY * 0.1;
 
   return (
-    <div>
-      <Line
-        data={{
-          datasets: datasets.datasets
-        }}
-        options={{
-          responsive: true,
-          plugins: {
-            legend: {
-              display: !!legend,
-              position: "top" as const
-            },
-            title: {
-              display: true,
-              text: title,
-            },
-            annotation: {
-              annotations: {
-                microslopLine: {
-                  type: "line",
-                  xMin: MICROSOFT_ACQUISITION_TS,
-                  xMax: MICROSOFT_ACQUISITION_TS,
-                  yMin: 0,
-                  yMax: datasets.maxY,
-                  borderColor: "#000000",
-                },
-                microslopText: {
-                  type: "label",
-                  xValue: MICROSOFT_ACQUISITION_TS,
-                  yValue: datasets.maxY,
-                  content: "Microsoft Acquires GitHub",
-                  yAdjust: -14,
-                  font: {
-                    size: 14,
-                  },
-                  padding: 0,
-                },
-              }
-            },
+    <Line
+      className="responsiveGraphHack"
+      style={{ minHeight: 400 }}
+      data={{
+        datasets: datasets.datasets
+      }}
+      options={{
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: !!legend,
+            position: "top" as const
           },
-          scales: {
-            x: {
-              type: "time",
-              time: {
-                unit: "month"
-              }
-            },
-            y: {
-              min: datasets.minY - yPad,
-              max: datasets.maxY + yPad,
-              ticks: {
-                includeBounds: false,
-                callback: (tickValue) => (
-                  tickValue.toLocaleString(undefined, { style: "percent", minimumFractionDigits: 3 })
-                ),
+          title: {
+            display: true,
+            text: title,
+          },
+          annotation: {
+            annotations: {
+              microslopLine: {
+                type: "line",
+                xMin: MICROSOFT_ACQUISITION_TS,
+                xMax: MICROSOFT_ACQUISITION_TS,
+                //yMin: 0,
+                //yMax: datasets.maxY,
+                borderColor: "#000000",
               },
+              microslopText: {
+                //type: "label",
+                //xValue: MICROSOFT_ACQUISITION_TS,
+                //yValue: datasets.maxY,
+                //content: " < Microsoft Acquires GitHub",
+                //yAdjust: -24,
+                //font: {
+                //  size: 14,
+                //},
+                //padding: 0,
+                //position: "start",
+                type: "label",
+                xValue: MICROSOFT_ACQUISITION_TS,
+                yValue: datasets.minY + deltaY / 2,
+                xAdjust: 10,
+                content: "Microsoft Acquires GitHub",
+                rotation: 90,
+                font: {
+                  size: 14,
+                },
+                padding: 0,
+              },
+            }
+          },
+        },
+        scales: {
+          x: {
+            type: "time",
+            time: {
+              unit: "month"
+            }
+          },
+          y: {
+            min: datasets.minY - yPad,
+            max: datasets.maxY + yPad,
+            ticks: {
+              includeBounds: false,
+              callback: (tickValue) => (
+                tickValue.toLocaleString(undefined, { style: "percent", minimumFractionDigits: 3 })
+              ),
             },
           },
-        }}
-      />
-    </div>
+        },
+      }}
+    />
   );
 };
