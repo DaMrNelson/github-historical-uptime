@@ -38,7 +38,9 @@ export type MonthlyEntry = {
 export type Dataset = (ChartData<"line", { key: number, value: number }>)["datasets"][number];
 export type Datasets = {
   datasets: Dataset[],
+  minX: number,
   minY: number,
+  maxX: number,
   maxY: number,
 };
 
@@ -165,7 +167,9 @@ export const averageMonthly = (monthlyData: MonthlyData, avgCompName: string): M
 
 export const getDatasets = (monthlyData: MonthlyData, selectedCompNames: string[], color: boolean): Datasets => {
   const datasets: Dataset[] = [];
+  let minX = Number.MAX_SAFE_INTEGER;
   let minY = 1;
+  let maxX = 0;
   let maxY = 0;
 
   for (const compName of selectedCompNames) {
@@ -181,6 +185,7 @@ export const getDatasets = (monthlyData: MonthlyData, selectedCompNames: string[
     for (const groupName in monthlyData) {
       // Get datapoint
       const date = dayjs(groupName, "YYYY:MMMM");
+      const ts = date.toDate().getTime();
       const group = monthlyData[groupName];
       const uptime = group.componentUptimes[compName];
 
@@ -196,20 +201,21 @@ export const getDatasets = (monthlyData: MonthlyData, selectedCompNames: string[
       }
 
       dpData.push({
-        x: date.toDate().getTime(),
+        x: ts,
         y: uptime,
         color,
         minorSeconds, majorSeconds,
       });
 
       // Adjust min and max bounds
-      if (uptime < minY) {
+      if (ts < minX)
+        minX = ts;
+      if (uptime < minY)
         minY = uptime;
-      }
-
-      if (uptime > maxY) {
+      if (ts > maxX)
+        maxX = ts;
+      if (uptime > maxY)
         maxY = uptime;
-      }
     }
 
     dpData.sort((a, b) => a.x - b.x); // Ascending
@@ -230,5 +236,5 @@ export const getDatasets = (monthlyData: MonthlyData, selectedCompNames: string[
     datasets.push(dataset);
   };
 
-  return { datasets, minY, maxY };
+  return { datasets, minX, minY, maxX, maxY };
 };

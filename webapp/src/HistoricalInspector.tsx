@@ -149,6 +149,50 @@ export const HistoricalGraph = ({ title, datasets, legend }: { title: string | s
                 },
                 padding: 0,
               },
+              // TODO:
+              //   [ ] HELLA DISCLAIMER. SLAs are quarterly.
+              //   [ ] Quarterly graph for SLA viewing (WITH DISCLAIMER)
+              //   [ ] Are my metrics correct? This seems like a serious stat to get wrong.
+              sla999: {
+                type: "line",
+                yMin: 0.999,
+                yMax: 0.999,
+                borderColor: "#999",
+                borderDash: [7, 7],
+              },
+              sla999Text: {
+                type: "label",
+                xValue: datasets.minX,
+                yValue: 0.999,
+                content: "99.9% Quarterly SLA",
+                font: {
+                  size: 14,
+                },
+                padding: 0,
+                position: "start",
+                xAdjust: 8,
+                yAdjust: 2,
+              },
+              sla99: {
+                type: "line",
+                yMin: 0.99,
+                yMax: 0.99,
+                borderColor: "#999",
+                borderDash: [7, 7],
+              },
+              sla99Text: {
+                type: "label",
+                xValue: datasets.minX,
+                yValue: 0.99,
+                content: "99.0% Quarterly SLA",
+                font: {
+                  size: 14,
+                },
+                padding: 0,
+                position: "start",
+                xAdjust: 8,
+                yAdjust: 2,
+              },
             }
           },
           tooltip: {
@@ -186,7 +230,7 @@ export const HistoricalGraph = ({ title, datasets, legend }: { title: string | s
             }
           },
           y: {
-            min: datasets.minY - yPad,
+            min: Math.min(datasets.minY, 0.99) - yPad,
             max: datasets.maxY + yPad,
             ticks: {
               includeBounds: false,
