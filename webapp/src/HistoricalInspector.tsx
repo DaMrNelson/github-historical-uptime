@@ -12,7 +12,9 @@ import { Chart as ChartJS,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
 import dayjs from "dayjs";
-import customParseFormat from 'dayjs/plugin/customParseFormat';
+import customParseFormat from "dayjs/plugin/customParseFormat";
+import duration from "dayjs/plugin/duration";
+import relativeTime from "dayjs/plugin/relativeTime";
 import "chartjs-adapter-dayjs-4/dist/chartjs-adapter-dayjs-4.esm";
 import annotationPlugin from "chartjs-plugin-annotation";
 import { useMemo } from "react";
@@ -31,6 +33,8 @@ ChartJS.register(
 );
 
 dayjs.extend(customParseFormat);
+dayjs.extend(duration);
+dayjs.extend(relativeTime);
 
 
 const RELEVANT_COMPONENTS = [
@@ -145,7 +149,26 @@ export const HistoricalGraph = ({ title, datasets, legend }: { title: string | s
             mode: "index",
             callbacks: {
               title: (tooltipItems) => dayjs((tooltipItems[0].raw as [number, number])[0]).format("MMMM YYYY"),
-              label: (tooltipItem) => `${tooltipItem.dataset.label}: ${tooltipItem.parsed.y!.toLocaleString(undefined, { style: "percent", minimumFractionDigits: 5 })}`,
+              label: (tooltipItem) => {
+                const raw = tooltipItem.raw as [number, number, number, number];
+                const timeMinor = raw[2];
+                const timeMajor = raw[3];
+
+                const humanize = (duration: number) => `${dayjs.duration({ seconds: duration }).humanize()}`;
+                const labels = [
+                  `${tooltipItem.dataset.label}: ${tooltipItem.parsed.y!.toLocaleString(undefined, { style: "percent", minimumFractionDigits: 5 })}`,
+                ];
+
+                if (timeMinor > 0) {
+                  labels.push(`Minor Outages: ${timeMinor > 0 ? humanize(timeMinor) : "N/A"}`);
+                }
+
+                if (timeMajor > 0) {
+                  labels.push(`Major Outages: ${timeMajor > 0 ? humanize(timeMajor) : "N/A"}`);
+                }
+
+                return labels;
+              },
             },
           },
         },

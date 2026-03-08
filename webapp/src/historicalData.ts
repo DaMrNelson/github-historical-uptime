@@ -31,8 +31,8 @@ export type MonthlyEntry = {
   month: string,
   year: number,
   componentUptimes: Record<string, number>,
-  minorSeconds: number,
-  majorSeconds: number,
+  componentMinorSeconds: Record<string, number>,
+  componentMajorSeconds: Record<string, number>,
 };
 
 export type Dataset = (ChartData<"line", { key: number, value: number }>)["datasets"][number];
@@ -86,8 +86,8 @@ export const aggregateMonthly = (data: HistoricalData, selectedCompNames: string
           month: month.name,
           year: month.year,
           componentUptimes: {},
-          majorSeconds: 0,
-          minorSeconds: 0,
+          componentMinorSeconds: {},
+          componentMajorSeconds: {},
         }
         monthlyData[groupName] = group;
       }
@@ -103,10 +103,17 @@ export const aggregateMonthly = (data: HistoricalData, selectedCompNames: string
 
       group.componentUptimes[compName] = uptime;
 
+      // Aggregate minor and major outages
+      let minorSeconds = 0;
+      let majorSeconds = 0;
+
       for (const day of month.days) {
-        group.majorSeconds += day.m ?? 0;
-        group.minorSeconds += day.p ?? 0;
+        minorSeconds += day.p ?? 0;
+        majorSeconds += day.m ?? 0;
       }
+
+      group.componentMinorSeconds[compName] = minorSeconds;
+      group.componentMajorSeconds[compName] = majorSeconds;
     }
   };
 
@@ -137,10 +144,18 @@ export const averageMonthly = (monthlyData: MonthlyData, avgCompName: string): M
     const group = monthlyData[groupName];
     const compNames = Object.keys(monthlyData[groupName].componentUptimes);
     const avg = compNames.reduce((sum, compName) => sum + group.componentUptimes[compName], 0) / compNames.length;
+    const totalMinorSeconds = compNames.reduce((sum, compName) => sum + group.componentMinorSeconds[compName], 0);
+    const totalMajorSeconds = compNames.reduce((sum, compName) => sum + group.componentMajorSeconds[compName], 0)
     avgMonthlyData[groupName] = {
       ...group,
       componentUptimes: {
         [avgCompName]: avg,
+      },
+      componentMinorSeconds: {
+        [avgCompName]: totalMinorSeconds,
+      },
+      componentMajorSeconds: {
+        [avgCompName]: totalMajorSeconds,
       },
     };
   }
@@ -154,7 +169,14 @@ export const getDatasets = (monthlyData: MonthlyData, selectedCompNames: string[
   let maxY = 0;
 
   for (const compName of selectedCompNames) {
-    const dpData: [number, number, string][] = [];
+    type DpData = {
+      x: number,
+      y: number,
+      color: string,
+      minorSeconds: number,
+      majorSeconds: number,
+    };
+    const dpData: DpData[] = [];
 
     for (const groupName in monthlyData) {
       // Get datapoint
@@ -164,14 +186,21 @@ export const getDatasets = (monthlyData: MonthlyData, selectedCompNames: string[
 
       // Determine color
       let color = COLOR_OK;
+      const minorSeconds = group.componentMinorSeconds[compName];
+      const majorSeconds = group.componentMajorSeconds[compName];
 
-      if (group.majorSeconds > 0) {
-        color = COLOR_MINOR;
-      } else if (group.minorSeconds > 0) {
+      if (majorSeconds > 0) {
         color = COLOR_MAJOR;
+      } else if (minorSeconds > 0) {
+        color = COLOR_MINOR;
       }
 
-      dpData.push([date.toDate().getTime(), uptime, color]);
+      dpData.push({
+        x: date.toDate().getTime(),
+        y: uptime,
+        color,
+        minorSeconds, majorSeconds,
+      });
 
       // Adjust min and max bounds
       if (uptime < minY) {
@@ -183,19 +212,19 @@ export const getDatasets = (monthlyData: MonthlyData, selectedCompNames: string[
       }
     }
 
-    dpData.sort((a, b) => a[0] - b[0]); // Ascending
+    dpData.sort((a, b) => a.x - b.x); // Ascending
     const dataset: Dataset = {
       label: compName,
-      data: dpData.map((dp) => [dp[0], dp[1]]) as unknown as Dataset["data"],
+      data: dpData.map((dp) => [dp.x, dp.y, dp.minorSeconds, dp.majorSeconds]) as unknown as Dataset["data"],
     };
 
     if (color) {
       Object.assign(dataset, {
-        pointBackgroundColor: dpData.map((dp) => dp[2]),
-        pointBorderColor: dpData.map((dp) => dp[2]),
+        pointBackgroundColor: dpData.map((dp) => dp.color),
+        pointBorderColor: dpData.map((dp) => dp.color),
         segment: {
-          borderColor: ctx => dpData[ctx.p1DataIndex][2]
-        }
+          borderColor: ctx => dpData[ctx.p1DataIndex].color,
+        },
       } as Partial<Dataset>);
     }
     datasets.push(dataset);
