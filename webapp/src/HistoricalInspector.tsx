@@ -16,7 +16,7 @@ import customParseFormat from "dayjs/plugin/customParseFormat";
 import duration from "dayjs/plugin/duration";
 import relativeTime from "dayjs/plugin/relativeTime";
 import "chartjs-adapter-dayjs-4/dist/chartjs-adapter-dayjs-4.esm";
-import annotationPlugin from "chartjs-plugin-annotation";
+import annotationPlugin, { type AnnotationOptions } from "chartjs-plugin-annotation";
 import { useMemo } from "react";
 import { aggregateMonthly, averageMonthly, checkMissingComponents, getDatasets, type Datasets, type HistoricalData } from "./historicalData";
 
@@ -40,8 +40,8 @@ dayjs.extend(relativeTime);
 const RELEVANT_COMPONENTS = [
     "API Requests",
     "Actions",
-    //"Codespaces", // Was not available at the beginning of historical data
-    //"Copilot", // Was not available at the beginning of historical data
+    "Codespaces",
+    "Copilot",
     "Git Operations",
     "Issues",
     "Packages",
@@ -53,8 +53,11 @@ const RELEVANT_COMPONENTS = [
 const MICROSOFT_ACQUISITION_TS = dayjs("October 26, 2018", "MMMM DD YYYY").toDate().getTime();
 
 
+// A month where components first appear in the data
+type Launch = { ts: number, label: string };
+
 export const HistoricalInspector = ({ data }: { data: HistoricalData }) => {
-  const { datasets, datasetsAvg } = useMemo(() => {
+  const { datasets, datasetsAvg, launches } = useMemo(() => {
     // Aggregate and validate data
     const monthly = aggregateMonthly(data, RELEVANT_COMPONENTS);
     const numMissing = checkMissingComponents(monthly.monthlyData, RELEVANT_COMPONENTS);
@@ -79,9 +82,35 @@ export const HistoricalInspector = ({ data }: { data: HistoricalData }) => {
     const monthlyAvg = averageMonthly(monthly.monthlyData, averageSeriesName);
     const datasetsAvg = getDatasets(monthlyAvg, [averageSeriesName], true);
 
+    // Components that start partway through the data get a line where they first appear
+    const firstMonth: Record<string, number> = {};
+
+    for (const groupName in monthly.monthlyData) {
+      const ts = dayjs(groupName, "YYYY:MMMM").toDate().getTime();
+
+      for (const compName in monthly.monthlyData[groupName].componentUptimes) {
+        firstMonth[compName] = Math.min(firstMonth[compName] ?? ts, ts);
+      }
+    }
+
+    const dataStart = Math.min(...Object.values(firstMonth));
+    const namesByMonth: Record<number, string[]> = {};
+
+    for (const compName of RELEVANT_COMPONENTS) {
+      // Pull Requests starts late because it was split out of Issues, not launched
+      if (firstMonth[compName] > dataStart && compName !== "Pull Requests") {
+        (namesByMonth[firstMonth[compName]] ??= []).push(compName);
+      }
+    }
+
+    const launches: Launch[] = Object.entries(namesByMonth).map(([ts, names]) => (
+      { ts: Number(ts), label: `${names.join(" and ")} GA` }
+    ));
+
     return {
       datasets,
       datasetsAvg,
+      launches,
     };
   }, [data]);
 
@@ -89,19 +118,42 @@ export const HistoricalInspector = ({ data }: { data: HistoricalData }) => {
     <div className="responsiveGraphHack tabWrapper">
       <Tabs defaultActiveKey="average">
         <Tab eventKey="average" title="Average" className="responsiveGraphHack">
-          <HistoricalGraph title={["GitHub Average Uptime by Month", "(Codespaces and Copilot excluded due to launch partway through dataset)"]} datasets={datasetsAvg} />
+          <HistoricalGraph title="GitHub Average Uptime by Month" datasets={datasetsAvg} launches={launches} />
         </Tab>
         <Tab eventKey="breakdown" title="Breakdown" className="responsiveGraphHack">
-          <HistoricalGraph title={["GitHub Uptime by Month", "(Codespaces and Copilot excluded due to launch partway through dataset)"]} datasets={datasets} legend />
+          <HistoricalGraph title="GitHub Uptime by Month" datasets={datasets} launches={launches} legend />
         </Tab>
       </Tabs>
     </div>
   );
 }
 
-export const HistoricalGraph = ({ title, datasets, legend }: { title: string | string[], datasets: Datasets, legend?: boolean }) => {
+export const HistoricalGraph = ({ title, datasets, launches, legend }: { title: string | string[], datasets: Datasets, launches: Launch[], legend?: boolean }) => {
   const deltaY = datasets.maxY - datasets.minY;
   const yPad = deltaY * 0.1;
+  const launchAnnotations: Record<string, AnnotationOptions> = {};
+
+  launches.forEach((launch, i) => {
+    launchAnnotations[`launchLine${i}`] = {
+      type: "line",
+      xMin: launch.ts,
+      xMax: launch.ts,
+      borderColor: "#6c757d",
+      borderDash: [4, 4],
+    };
+    launchAnnotations[`launchText${i}`] = {
+      type: "label",
+      xValue: launch.ts,
+      yValue: datasets.minY + deltaY / 2,
+      xAdjust: 10,
+      content: launch.label,
+      rotation: 90,
+      font: {
+        size: 14,
+      },
+      padding: 0,
+    };
+  });
 
   return (
     <Line
@@ -149,6 +201,7 @@ export const HistoricalGraph = ({ title, datasets, legend }: { title: string | s
                 },
                 padding: 0,
               },
+              ...launchAnnotations,
             }
           },
           tooltip: {
